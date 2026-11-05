@@ -263,6 +263,26 @@
       opacity: 0.9;
     }
 
+    /* Stilovi za prikaz stare i nove (akcijske) cijene */
+    .price-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+    }
+
+    .old-price {
+      font-size: 11px;
+      color: var(--muted);
+      text-decoration: line-through;
+      opacity: 0.75;
+    }
+
+    .new-price {
+      font-weight: 600;
+      color: #38bdf8;
+    }
+
     .tag {
       display: inline-flex;
       padding: 2px 8px;
@@ -528,6 +548,7 @@
 
       td.price-cell {
         text-align: right;
+        align-items: flex-end;
         font-weight: 600;
         font-size: 13px;
         white-space: nowrap;
@@ -657,10 +678,10 @@
     </footer>
   </div>
 
-  <!-- JSON guma (punimo ga fetchom, logika parsiranja ostaje ista) -->
+  <!-- JSON guma -->
   <script id="gume-data" type="application/json"></script>
 
-  <!-- JSON senzora (punimo ga fetchom, logika parsiranja ostaje ista) -->
+  <!-- JSON senzora -->
   <script id="senzori-data" type="application/json"></script>
 
   <!-- Loader: učita vanjske JSON datoteke i ubaci ih u postojeće script tagove -->
@@ -713,7 +734,6 @@
       return s;
     }
 
-    // parsiranje dimenzije 205/55R16, 205/55ZR16, 195/65R15XL ...
     function splitTyreDimension(dimStr) {
       if (!dimStr) return { width: "", height: "", rim: "" };
       let s = String(dimStr).toUpperCase().replace(/\s+/g, "");
@@ -722,7 +742,6 @@
       return { width: m[1], height: m[2], rim: m[3] };
     }
 
-    // sezona iz dimension_label
     function detectSeason(item) {
       const dimLabel = item.dimension_label || item.dimensionLabel || "";
       if (!dimLabel) return "";
@@ -781,7 +800,6 @@
         }
       }
 
-      // map u finalni oblik
       return flat.map((item) => {
         let brand = "";
 
@@ -828,10 +846,7 @@
           "";
 
         const season = detectSeason(item);
-
-        const productType =
-          item.productType || item.product_type || defaultProductType || "auto-guma";
-
+        const productType = item.productType || item.product_type || defaultProductType || "auto-guma";
         const dimSource = item.dimension || item.dimension_label || "";
         const { width, height, rim } = splitTyreDimension(dimSource);
 
@@ -852,7 +867,6 @@
       const gume = parseEmbeddedJson("gume-data", "auto-guma");
       const senzori = parseEmbeddedJson("senzori-data", "senzor");
       allData = [...gume, ...senzori];
-      console.log("Učitano stavki:", allData.length);
     }
 
     function initBrandFilter() {
@@ -1070,9 +1084,33 @@
           tdDim.textContent = item.dimension || "";
           tr.appendChild(tdDim);
 
+          // Prikaz cijena (stara prekrižena + nova akcijska umanjena za 10%)
           const tdPrice = document.createElement("td");
           tdPrice.className = "price-cell";
-          tdPrice.textContent = item.priceDisplay ?? "";
+
+          const rawPrice = item.priceDisplay ?? "";
+          const numericVal = parseNumeric(rawPrice);
+
+          if (!isNaN(numericVal)) {
+            const discountedVal = (numericVal * 0.9).toFixed(2);
+            
+            let suffix = "";
+            if (String(rawPrice).includes("€")) suffix = " €";
+            else if (String(rawPrice).toLowerCase().includes("eur")) suffix = " EUR";
+
+            const oldSpan = document.createElement("span");
+            oldSpan.className = "old-price";
+            oldSpan.textContent = rawPrice;
+
+            const newSpan = document.createElement("span");
+            newSpan.className = "new-price";
+            newSpan.textContent = discountedVal + suffix;
+
+            tdPrice.appendChild(oldSpan);
+            tdPrice.appendChild(newSpan);
+          } else {
+            tdPrice.textContent = rawPrice;
+          }
           tr.appendChild(tdPrice);
 
           const tdSeason = document.createElement("td");
@@ -1142,7 +1180,6 @@
       });
     }
 
-    // INIT (čeka da se vanjski JSON ubaci u script tagove, pa tek onda koristi tvoju logiku)
     (async () => {
       await preloadAllJson();
       initData();
